@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Sorter — BPDB Meter Token Organizer</title>
+    <meta name="description"
+        content="Parse BPDB prepaid meter SMS messages and display tokens in sequence order for easy meter input">
+    <meta name="theme-color" content="#007bff">
+
+    <meta property="og:title" content="Token Sorter">
+    <meta property="og:description" content="BPDB Meter Token Sorter — paste your SMS and get tokens in order">
+    <meta property="og:type" content="website">
+
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Token Sorter">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="toastContainer" class="toast-container"></div>
+
+    <header class="app-header">
+        <h1 class="app-title"><i class="fas fa-bolt"></i> Token Sorter</h1>
+        <button id="themeToggle" class="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+            <i class="fas fa-moon"></i>
+        </button>
+    </header>
+
+    <main class="container">
+
+        <!-- Session Resume Prompt -->
+        <div id="sessionPrompt" class="session-prompt" hidden>
+            <p><i class="fas fa-history"></i> You have an unfinished session. Resume where you left off?</p>
+            <div class="session-actions">
+                <button id="resumeSession" class="btn btn-primary"><i class="fas fa-play"></i> Resume</button>
+                <button id="discardSession" class="btn btn-danger-ghost"><i class="fas fa-trash"></i> Discard</button>
+            </div>
+        </div>
+
+        <!-- Help / Instructions (always visible at top) -->
+        <details class="card help-card" open>
+            <summary class="card-header help-summary">
+                <i class="fas fa-info-circle"></i>
+                <span class="card-title">How to use</span>
+                <i class="fas fa-chevron-down help-chevron"></i>
+            </summary>
+            <div class="card-body help-body">
+                <p class="help-section">English</p>
+                <ul>
+                    <li>Copy the <strong>entire</strong> SMS message from your meter token return message.</li>
+                    <li>Paste it into the box below and click <strong>Start Inserting</strong>.</li>
+                    <li>Press <kbd>Next</kbd> (or <kbd>→</kbd> / <kbd>Space</kbd>) after entering each token into the
+                        meter — it auto-marks as done.</li>
+                    <li>Press <kbd>Prev</kbd> (or <kbd>←</kbd>) to go back if you need to re-check.</li>
+                    <li>Press <kbd>C</kbd> to copy, <kbd>N</kbd> for a new session.</li>
+                    <li>Check current inserted sequence: press <strong>889</strong> on your meter.</li>
+                </ul>
+                <p class="help-section">বাংলা</p>
+                <ul>
+                    <li>আপনার মিটার টোকেন এর সম্পূর্ণ মেসেজটি কপি করুন</li>
+                    <li>নিচের বক্সে পেস্ট করে <strong>Start Inserting</strong> এ ক্লিক করুন</li>
+                    <li>মিটারে প্রতিটি টোকেন লেখার পর <kbd>Next</kbd> বা <kbd>→</kbd> চাপুন — স্বয়ংক্রিয়ভাবে সম্পন্ন
+                        হিসেবে চিহ্নিত হবে</li>
+                    <li>বর্তমান Sequence Number চেক করার জন্য মিটারে <strong>889</strong> টিপুন</li>
+                </ul>
+                <div class="help-footer">
+                    <a class="btn btn-ghost btn-sm" href="files/codes.pdf">
+                        <i class="fas fa-file-pdf"></i> Meter Short Code List
+                    </a>
+                </div>
+            </div>
+        </details>
+
+        <!-- Step 1: Paste -->
+        <section class="card">
+            <div class="card-header">
+                <span class="step-badge">1</span>
+                <span class="card-title">Paste your SMS</span>
+            </div>
+            <div class="card-body">
+                <textarea id="tokenInput" placeholder="Paste your entire Meter token SMS message here…"
+                    spellcheck="false"></textarea>
+                <div id="warning" class="warning" hidden></div>
+                <div class="action-row">
+                    <button id="startButton" class="start-btn">
+                        <i class="fas fa-play"></i> Start Inserting
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 2: Process results (hidden until parsed) -->
+        <section id="resultSection" class="result-section" hidden>
+
+            <!-- Meter Info -->
+            <div id="meterInfoPanel" class="card meter-info" hidden>
+                <div class="card-header">
+                    <i class="fas fa-gauge-high"></i>
+                    <span class="card-title">Meter Details</span>
+                </div>
+                <div class="card-body">
+                    <div id="meterInfoContent" class="meter-info-grid"></div>
+                </div>
+            </div>
+
+            <!-- Progress -->
+            <div class="card progress-card">
+                <div class="card-header">
+                    <i class="fas fa-tasks"></i>
+                    <span class="card-title">Progress</span>
+                    <span id="progressText" class="progress-text-inline"></span>
+                </div>
+                <div class="card-body">
+                    <div class="progress-bar" role="progressbar" aria-label="Token completion progress">
+                        <div id="progressBarFill" class="progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Token -->
+            <div id="tokenDisplay" class="card token-card" hidden>
+                <div class="card-header">
+                    <span class="step-badge step-badge-current" id="currentStepBadge">1</span>
+                    <span class="card-title">Current Token</span>
+                    <span id="tokenSeqLabel" class="card-title-meta"></span>
+                </div>
+                <div class="card-body">
+                    <div id="tokenNumberBox" class="token-number-box"></div>
+                    <div class="nav-row">
+                        <button id="prevToken" class="btn btn-primary">
+                            <i class="fas fa-chevron-left"></i> Prev
+                        </button>
+                        <button id="nextToken" class="btn btn-primary">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </button>
+                        <button id="copyToken" class="btn btn-secondary" title="Copy token (C)">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button id="resetProgress" class="btn btn-danger-ghost" title="Reset all progress">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- All Tokens Table -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-list"></i>
+                    <span class="card-title">All Tokens</span>
+                    <span class="card-title-meta">Click any row to jump</span>
+                </div>
+                <div class="card-body">
+                    <div id="tokenTableContainer" class="token-table-container"></div>
+                    <div class="action-row">
+                        <button id="newToken" class="btn btn-success" hidden>
+                            <i class="fas fa-plus"></i> New Session
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <span>&copy; Srabon Khan</span>
+            <span class="footer-icons">
+                <a href="https://www.facebook.com/me.srabon" target="_blank" rel="noopener" title="Facebook"
+                    aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                <a href="https://github.com/MeSrabon" target="_blank" rel="noopener" title="GitHub"
+                    aria-label="GitHub"><i class="fab fa-github"></i></a>
+            </span>
+        </div>
+
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

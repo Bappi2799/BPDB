@@ -1,0 +1,19 @@
+{
+  "name": "meter-token",
+  "version": "2.0.0",
+  "description": "BPDB Prepaid Meter Token Sorter — Parse SMS messages and display tokens in sequence order for easy meter input",
+  "keywords": ["meter", "token", "bpdb", "prepaid", "electricity", "sms"],
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MeSrabon/meter-token"
+  },
+  "scripts": {
+    "dev": "npx serve . -p 3000",
+    "start": "npx serve . -p 3000",
+    "vercel": "vercel"
+  },
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
